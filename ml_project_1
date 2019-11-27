@@ -1,0 +1,106 @@
+import pandas as pd
+import numpy as np
+from sklearn.decomposition import PCA
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score 
+from sklearn.preprocessing import StandardScaler
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import VotingClassifier 
+
+
+data = pd.read_csv(r'C:\Users\acer\Desktop\python\ml_project\creditcard.csv', header = 0)
+data1 = data.drop(columns = ['Time'])
+# drop the column Time
+data_class1 = data1[(data1['Class'] == 1)]
+data_class0 = data1[(data1['Class'] == 0)]
+
+
+def split_data(data, number):
+    random_index = np.random.permutation(len(data))
+    test_index = random_index[:number]
+    data = pd.concat([data.iloc[test_index], data_class1], axis = 0)
+    return data.drop(columns = ['Class']), pd.DataFrame(data.loc[:,'Class'])
+#随机选取一定数量的class0，并与class1的数据进行组合
+#将数据的属性和label分开
+    
+scaler = StandardScaler()
+data_attribute_1, label1 = split_data(data_class0,492)    
+pca=PCA(n_components=3)
+cross1_pca=scaler.fit_transform(pd.DataFrame(pca.fit_transform(data_attribute_1)))
+#输出训练集并标准化
+
+
+score_knn = []
+score_bayes = []
+score_rfc = []
+score_lr = []
+score_bagging = []
+
+
+#进行10次的随机分类，并进行score的求平均
+for i in range(10):
+    
+    data_attribute_2, label2 = split_data(data_class0,492)    
+    pca=PCA(n_components=3)
+    cross2_pca=scaler.fit_transform(pd.DataFrame(pca.fit_transform(data_attribute_2)))
+#KNN:
+    knn_classifier=KNeighborsClassifier(7)
+    knn_classifier.fit(cross1_pca, label1)
+    y_predict1=knn_classifier.predict(cross2_pca)
+    knn_cm= confusion_matrix(label2 ,y_predict1)
+    score1 = accuracy_score(label2, y_predict1)
+    score_knn.append(score1)
+    #print(knn_cm)
+    #knn状态下的混淆矩阵
+    #print (score) 
+#naivebayes
+    bays = GaussianNB()
+    bays.fit(cross1_pca, label1)
+    y_predict2 = bays.predict(cross2_pca)
+    bays_cm= confusion_matrix(label2 ,y_predict2)
+    score2 = accuracy_score(label2, y_predict2)
+    score_bayes.append(score2)
+#RandomForestClassifier
+    rfc =  RandomForestClassifier(n_estimators=500, max_leaf_nodes=16, n_jobs=-1)
+    rfc.fit(cross1_pca, label1) 
+    y_predict3 = rfc.predict(cross2_pca)
+    rfc_cm = confusion_matrix(label2, y_predict3)
+    score3 = accuracy_score(label2, y_predict3)
+    score_rfc.append(score3)
+#LR
+    lr = LogisticRegression()
+    lr.fit(cross1_pca, label1) 
+    y_predict4 = lr.predict(cross2_pca)
+    lr_cm = confusion_matrix(label2, y_predict4)
+    score4 = accuracy_score(label2, y_predict4)
+    score_lr.append(score4)
+#bagging
+    voting = VotingClassifier(estimators=[('knn', knn_classifier), ('rf',rfc), ('pb', bays), ], voting = 'hard')
+    voting.fit(cross1_pca, label1)
+    y_predict5 = voting.predict(cross2_pca)
+    voting_cm = confusion_matrix(label2, y_predict5)
+    score5 = accuracy_score(label2, y_predict5)
+    score_bagging.append(score5)
+    
+#将最后一次的各个分类器的混淆矩阵输出    
+    if i == 9:
+        print ('knn:',knn_cm)
+        print ('naivebayes:',bays_cm)
+        print ('rfc:', rfc_cm)
+        print ('lr:', lr_cm)
+        print ('bagging:',voting_cm)
+    
+    
+    
+    
+    
+    
+print ('knn:',np.mean(score_knn))
+print ('naivebayes:',np.mean(score_bayes))
+print ('rfc:', np.mean(score_rfc))
+print ('lr:', np.mean(score_lr))
+print ('bagging:', np.mean(score_bagging))
+#输出每一个分类器的准确率均值
